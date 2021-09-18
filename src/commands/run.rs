@@ -1,10 +1,13 @@
 use anyhow::{bail, Result};
 use clap::Clap;
 use flate2::read::GzDecoder;
+use nix::mount::{mount, umount, MsFlags};
 use oci_spec::image::{ImageIndex, ImageManifest};
 use std::{
     fs::{create_dir, File},
     path::{Path, PathBuf},
+    thread::sleep,
+    time::Duration,
 };
 use tar::Archive;
 
@@ -31,16 +34,52 @@ impl Run {
         let container_dir = &std::env::current_dir()?.join(format!("{}-container", &self.image));
         create_dir(container_dir)?;
 
-        for layer in manifest.layers() {
-            let digest = layer.digest();
+        let layer_paths = manifest
+            .layers()
+            .iter()
+            .map(|layer| -> Result<String> {
+                let digest = layer.digest();
 
-            let tar_gz = File::open(blob_path(&image_path, &digest))?;
-            let tar = GzDecoder::new(tar_gz);
-            let mut archive = Archive::new(tar);
+                let tar_gz = File::open(blob_path(&image_path, &digest))?;
+                let tar = GzDecoder::new(tar_gz);
+                let mut archive = Archive::new(tar);
 
-            let (_, digest) = split_digest(digest);
-            archive.unpack(container_dir.join(digest))?;
-        }
+                let (_, digest) = split_digest(digest);
+                let path = container_dir.join(digest);
+                archive.unpack(path.clone())?;
+
+                Ok(path.to_str().unwrap().to_string())
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        let root_path = container_dir.join("rootfs");
+        create_dir(root_path.clone())?;
+
+        let workdir_path = container_dir.join("workdir");
+        create_dir(workdir_path.clone())?;
+
+        let upperdir_path = container_dir.join("upperdir");
+        create_dir(upperdir_path.clone())?;
+
+        mount(
+            None::<&str>,
+            root_path.as_path(),
+            Some("overlay"),
+            MsFlags::empty(),
+            Some(
+                format!(
+                    "lowerdir={},upperdir={},workdir={}",
+                    layer_paths.join(":"),
+                    upperdir_path.to_str().unwrap(),
+                    workdir_path.to_str().unwrap()
+                )
+                .as_str(),
+            ),
+        )?;
+
+        sleep(Duration::from_secs(20));
+
+        umount(root_path.as_path())?;
 
         Ok(())
     }
