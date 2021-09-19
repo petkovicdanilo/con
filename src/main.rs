@@ -2,25 +2,21 @@ mod commands;
 
 use anyhow::Result;
 use clap::{crate_version, Clap};
-use commands::run;
+use commands::{pull, run};
 
 /// con - simple program to ilustrate containers in Rust
 #[derive(Clap, Debug)]
 #[clap(version = crate_version!())]
-struct Opt {
-    #[clap(subcommand)]
-    subcommand: SubCommand,
-}
-
-#[derive(Clap, Debug)]
-enum SubCommand {
+enum Opt {
+    Pull(pull::Pull),
     Run(run::Run),
 }
 
 fn main() -> Result<()> {
     let opt = Opt::parse();
 
-    match opt.subcommand {
-        SubCommand::Run(run) => run.exec(),
+    match opt {
+        Opt::Pull(pull) => pull.exec(),
+        Opt::Run(run) => run.exec(),
     }
 }
