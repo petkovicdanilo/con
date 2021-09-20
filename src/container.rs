@@ -7,7 +7,7 @@ use std::thread::sleep;
 use tokio::fs::create_dir;
 
 pub struct Container {
-    pub image: Image,
+    image: Image,
     dir: PathBuf,
 }
 
@@ -26,6 +26,14 @@ impl Container {
     }
 
     pub async fn run(&self, _command: Vec<String>) -> Result<()> {
+        self.prepare()?;
+
+        sleep(Duration::from_secs(20));
+
+        Ok(())
+    }
+
+    fn prepare(&self) -> Result<()> {
         let layer_paths: Vec<String> = self
             .image
             .layer_paths()
@@ -48,8 +56,6 @@ impl Container {
                 .as_str(),
             ),
         )?;
-
-        sleep(Duration::from_secs(20));
 
         Ok(())
     }
