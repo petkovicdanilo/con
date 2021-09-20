@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use clap::Clap;
 use nix::mount::{mount, umount, MsFlags};
-use std::{path::Path, thread::sleep, time::Duration};
+use std::{fs::remove_dir_all, path::Path, thread::sleep, time::Duration};
 use tokio::fs::create_dir;
 
 use crate::{commands::pull::Pull, image::Image};
@@ -75,6 +75,8 @@ impl Run {
         sleep(Duration::from_secs(20));
 
         umount(root_path.as_path())?;
+
+        remove_dir_all(&container_dir)?;
 
         Ok(())
     }
