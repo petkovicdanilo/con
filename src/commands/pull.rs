@@ -17,7 +17,7 @@ pub struct Pull {
 }
 
 impl Pull {
-    pub async fn exec(&self) -> Result<()> {
+    pub async fn exec(self) -> Result<()> {
         let destination_dir = std::env::current_dir()?.join(&self.image);
         create_dir_all(&destination_dir).await?;
 
@@ -32,7 +32,7 @@ impl Pull {
             )
             .await?;
 
-        let image = Image::from_path(destination_dir)?;
+        let image = Image::new(self.image, self.tag, destination_dir).await?;
 
         for layer_path in image.layer_paths() {
             let tar_gz = File::open(&layer_path).await?;
