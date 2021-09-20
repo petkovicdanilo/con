@@ -8,6 +8,9 @@ use crate::{commands::pull::Pull, image::Image};
 
 #[derive(Clap, Debug)]
 pub struct Run {
+    #[clap(long, default_value = "container")]
+    name: String,
+
     image: String,
 
     #[clap(default_value = "latest")]
