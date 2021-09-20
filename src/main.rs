@@ -1,4 +1,6 @@
 mod commands;
+mod image;
+mod util;
 
 use anyhow::Result;
 use clap::{crate_version, Clap};
@@ -12,11 +14,12 @@ enum Opt {
     Run(run::Run),
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let opt = Opt::parse();
 
     match opt {
-        Opt::Pull(pull) => pull.exec(),
-        Opt::Run(run) => run.exec(),
+        Opt::Pull(pull) => pull.exec().await,
+        Opt::Run(run) => run.exec().await,
     }
 }
