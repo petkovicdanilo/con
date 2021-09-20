@@ -42,13 +42,13 @@ impl Run {
         create_dir(container_dir).await?;
 
         let root_path = container_dir.join("rootfs");
-        create_dir(root_path.clone()).await?;
+        create_dir(&root_path).await?;
 
         let workdir_path = container_dir.join("workdir");
-        create_dir(workdir_path.clone()).await?;
+        create_dir(&workdir_path).await?;
 
         let upperdir_path = container_dir.join("upperdir");
-        create_dir(upperdir_path.clone()).await?;
+        create_dir(&upperdir_path).await?;
 
         let layer_paths: Vec<String> = image
             .layer_paths()
