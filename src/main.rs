@@ -1,11 +1,6 @@
-mod commands;
-mod container;
-mod image;
-mod util;
-
 use anyhow::Result;
 use clap::{crate_authors, crate_version, Clap};
-use commands::{pull, run};
+use con::commands::{pull, run};
 
 /// con - simple program to ilustrate containers in Rust
 #[derive(Clap, Debug)]
