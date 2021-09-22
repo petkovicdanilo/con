@@ -8,10 +8,11 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1"
-flate2 = { version = "1.0.22", features = ["tokio"] }
+caps = { git = "https://github.com/lucab/caps-rs", rev = "cb54844" }
 clap = "3.0.0-beta.4"
+flate2 = { version = "1.0.22", features = ["tokio"] }
 nix = "0.22"
-oci-spec = "0.5.1"
 oci-registry = { git = "https://github.com/petkovicdanilo/oci-registry-rs", rev = "dd7d936" }
+oci-spec = "0.5.1"
 tar = "0.4.37"
 tokio = { version = "1", features = ["full"] }

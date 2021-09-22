@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    container::{mounts, namespaces, overlayfs::Bundle},
+    container::{capabilities, mounts, namespaces, overlayfs::Bundle},
     image::Image,
 };
 use anyhow::{bail, Result};
@@ -56,8 +56,7 @@ impl Run {
             unistd::sethostname(&name).unwrap();
 
             mounts::run(&bundle).unwrap();
-
-            println!("{}", bundle.root_path().to_str().unwrap());
+            capabilities::run().unwrap();
 
             let mut c = Command::new("/bin/bash")
                 .stdin(Stdio::inherit())
