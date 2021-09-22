@@ -1,11 +1,15 @@
-use std::path::Path;
+use std::{
+    path::Path,
+    process::{Command, Stdio},
+};
 
 use crate::{
-    container::overlayfs::Bundle,
+    container::{namespaces, overlayfs::Bundle},
     image::Image,
 };
 use anyhow::{bail, Result};
 use clap::Clap;
+use nix::unistd;
 use tokio::fs::create_dir;
 
 use super::pull::Pull;
@@ -46,6 +50,24 @@ impl Run {
         create_dir(&container_dir).await?;
         let bundle = Bundle::new(&image, &container_dir)?;
 
+        let name = self.name;
+
+        namespaces::run(Box::new(|| {
+            unistd::sethostname(&name).unwrap();
+
+            println!("{}", bundle.root_path().to_str().unwrap());
+
+            let mut c = Command::new("/bin/bash")
+                .stdin(Stdio::inherit())
+                .stdout(Stdio::inherit())
+                .stderr(Stdio::inherit())
+                .spawn()
+                .expect("failed to start");
+
+            c.wait().expect("error");
+
+            return 0;
+        }))?;
 
         Ok(())
     }
