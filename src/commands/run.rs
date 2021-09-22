@@ -16,8 +16,17 @@ use super::pull::Pull;
 
 #[derive(Clap, Debug)]
 pub struct Run {
+    /// Container host name
     #[clap(long, default_value = "container")]
-    name: String,
+    hostname: String,
+
+    /// CPU shares (relative weight)
+    #[clap(short, long)]
+    cpu_shares: Option<u32>,
+
+    /// Memory limit in bytes
+    #[clap(short, long)]
+    memory: Option<u32>,
 
     image: String,
 
@@ -50,10 +59,10 @@ impl Run {
         create_dir(&container_dir).await?;
         let bundle = Bundle::new(&image, &container_dir)?;
 
-        let name = self.name;
+        let hostname = self.hostname;
 
         namespaces::run(Box::new(|| {
-            unistd::sethostname(&name).unwrap();
+            unistd::sethostname(&hostname).unwrap();
 
             mounts::run(&bundle).unwrap();
             capabilities::run().unwrap();
