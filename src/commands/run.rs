@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    container::{capabilities, mounts, namespaces, overlayfs::Bundle},
+    container::{capabilities, cgroups, mounts, namespaces, overlayfs::Bundle},
     image::Image,
 };
 use anyhow::{bail, Result};
@@ -20,13 +20,8 @@ pub struct Run {
     #[clap(long, default_value = "container")]
     hostname: String,
 
-    /// CPU shares (relative weight)
-    #[clap(short, long)]
-    cpu_shares: Option<u32>,
-
-    /// Memory limit in bytes
-    #[clap(short, long)]
-    memory: Option<u32>,
+    #[clap(flatten)]
+    cgroups_config: CgroupsConfig,
 
     image: String,
 
@@ -34,6 +29,21 @@ pub struct Run {
     tag: String,
 
     command: Vec<String>,
+}
+
+#[derive(Clap, Debug)]
+pub struct CgroupsConfig {
+    /// CPU shares (relative weight)
+    #[clap(short, long, default_value = "256")]
+    pub(crate) cpu_shares: u64,
+
+    /// Memory limit in bytes
+    #[clap(short, long, default_value = "1073741824")]
+    pub(crate) memory: u64,
+
+    /// Tune container pids limit (0 for unlimited)
+    #[clap(short, long, default_value = "0")]
+    pub(crate) pids_limit: u32,
 }
 
 impl Run {
@@ -60,6 +70,7 @@ impl Run {
         let bundle = Bundle::new(&image, &container_dir)?;
 
         let hostname = self.hostname;
+        cgroups::run(&self.cgroups_config)?;
 
         namespaces::run(Box::new(|| {
             unistd::sethostname(&hostname).unwrap();
