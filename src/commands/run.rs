@@ -1,6 +1,9 @@
 use std::path::Path;
 
-use crate::{container::Container, image::Image};
+use crate::{
+    container::overlayfs::Bundle,
+    image::Image,
+};
 use anyhow::{bail, Result};
 use clap::Clap;
 use tokio::fs::create_dir;
@@ -41,9 +44,8 @@ impl Run {
 
         let container_dir = &std::env::current_dir()?.join(format!("{}-container", &image.name));
         create_dir(&container_dir).await?;
+        let bundle = Bundle::new(&image, &container_dir)?;
 
-        let container = Container::new(image, container_dir.to_owned()).await?;
-        container.run(self.command).await?;
 
         Ok(())
     }
