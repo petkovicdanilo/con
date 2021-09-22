@@ -2,13 +2,13 @@ use std::fs::{create_dir, remove_dir};
 
 use anyhow::Result;
 use nix::{
-    mount::{mount, umount2, MntFlags, MsFlags},
+    mount::{mount, umount, umount2, MntFlags, MsFlags},
     unistd::{chdir, pivot_root},
 };
 
 use super::overlayfs::Bundle;
 
-pub fn run(bundle: &Bundle) -> Result<()> {
+pub fn change_root(bundle: &Bundle) -> Result<()> {
     let old_root = bundle.root_path().join("old_root");
     create_dir(&old_root)?;
 
@@ -25,6 +25,33 @@ pub fn run(bundle: &Bundle) -> Result<()> {
 
     umount2("/old_root", MntFlags::MNT_DETACH)?;
     remove_dir("/old_root")?;
+
+    Ok(())
+}
+
+pub fn special_mount() -> Result<()> {
+    mount(
+        Some("proc"),
+        "/proc",
+        Some("proc"),
+        MsFlags::empty(),
+        None::<&str>,
+    )?;
+
+    mount(
+        Some("tmp"),
+        "/tmp",
+        Some("tmpfs"),
+        MsFlags::empty(),
+        None::<&str>,
+    )?;
+
+    Ok(())
+}
+
+pub fn special_unmount() -> Result<()> {
+    umount("/proc")?;
+    umount("/tmp")?;
 
     Ok(())
 }

@@ -75,7 +75,9 @@ impl Run {
         namespaces::run(Box::new(|| {
             unistd::sethostname(&hostname).unwrap();
 
-            mounts::run(&bundle).unwrap();
+            mounts::change_root(&bundle).unwrap();
+            mounts::special_mount().unwrap();
+
             capabilities::run().unwrap();
 
             let mut c = Command::new("/bin/bash")
@@ -86,6 +88,8 @@ impl Run {
                 .expect("failed to start");
 
             c.wait().expect("error");
+
+            mounts::special_unmount().unwrap();
 
             return 0;
         }))?;
