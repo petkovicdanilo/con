@@ -9,7 +9,7 @@ use nix::mount::{mount, umount, MsFlags};
 use crate::image::Image;
 
 pub struct Bundle<'a> {
-    dir: &'a PathBuf,
+    pub(crate) dir: &'a PathBuf,
 }
 
 impl<'a> Bundle<'a> {

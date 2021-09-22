@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    container::{namespaces, overlayfs::Bundle},
+    container::{mounts, namespaces, overlayfs::Bundle},
     image::Image,
 };
 use anyhow::{bail, Result};
@@ -54,6 +54,8 @@ impl Run {
 
         namespaces::run(Box::new(|| {
             unistd::sethostname(&name).unwrap();
+
+            mounts::run(&bundle).unwrap();
 
             println!("{}", bundle.root_path().to_str().unwrap());
 
