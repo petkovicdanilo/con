@@ -70,6 +70,8 @@ impl Run {
         let bundle = Bundle::new(&image, &container_dir)?;
 
         let hostname = self.hostname;
+        let command = self.command;
+
         cgroups::run(&self.cgroups_config)?;
 
         namespaces::run(Box::new(|| {
@@ -80,7 +82,8 @@ impl Run {
 
             capabilities::run().unwrap();
 
-            let mut c = Command::new("/bin/bash")
+            let mut c = Command::new(command[0].as_str())
+                .args(command[1..].as_ref())
                 .stdin(Stdio::inherit())
                 .stdout(Stdio::inherit())
                 .stderr(Stdio::inherit())
