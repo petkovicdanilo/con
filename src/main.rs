@@ -1,10 +1,10 @@
 use anyhow::Result;
-use clap::{crate_authors, crate_version, Clap};
+use clap::Clap;
 use con::commands::{pull, run};
 
 /// con - simple program to ilustrate containers in Rust
 #[derive(Clap, Debug)]
-#[clap(author = crate_authors!(), version = crate_version!())]
+#[clap(author, about, version)]
 enum Opt {
     Pull(pull::Pull),
     Run(run::Run),
