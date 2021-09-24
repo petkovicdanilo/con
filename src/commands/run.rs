@@ -82,6 +82,19 @@ impl Run {
 
             capabilities::run().unwrap();
 
+            unsafe {
+                nix::env::clearenv().unwrap();
+            };
+
+            if let Some(config) = image.configuration.config() {
+                if let Some(env) = config.env() {
+                    for var in env {
+                        let (key, value) = var.split_once("=").unwrap();
+                        std::env::set_var(key, value);
+                    }
+                }
+            }
+
             let mut c = Command::new(command[0].as_str())
                 .args(command[1..].as_ref())
                 .stdin(Stdio::inherit())

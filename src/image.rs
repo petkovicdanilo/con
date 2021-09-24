@@ -1,5 +1,5 @@
 use anyhow::Result;
-use oci_spec::image::{ImageIndex, ImageManifest};
+use oci_spec::image::{ImageConfiguration, ImageIndex, ImageManifest};
 use std::path::PathBuf;
 
 use crate::util::blob_path;
@@ -10,6 +10,7 @@ pub struct Image {
     pub base_path: PathBuf,
     pub index: ImageIndex,
     pub manifest: ImageManifest,
+    pub configuration: ImageConfiguration,
 }
 
 impl Image {
@@ -19,12 +20,17 @@ impl Image {
         let manifest_digest = &index.manifests()[0].digest();
         let manifest = ImageManifest::from_file(blob_path(&base_path, &manifest_digest))?;
 
+        let configuration_digest = &manifest.config().digest();
+        let configuration =
+            ImageConfiguration::from_file(blob_path(&base_path, &configuration_digest))?;
+
         Ok(Self {
             name,
             tag,
             base_path,
             index,
             manifest,
+            configuration,
         })
     }
 
