@@ -6,33 +6,31 @@ use oci_spec::image::{Arch, Os};
 use tar::Archive;
 use tokio::fs::{create_dir_all, remove_file, rename, File};
 
-use crate::image::Image;
+use crate::image::{parse_image_id, Image, ImageId};
 
 #[derive(Clap, Debug)]
 pub struct Pull {
-    pub image: String,
-
-    #[clap(default_value = "latest")]
-    pub tag: String,
+    #[clap(name = "IMAGE", parse(from_str = parse_image_id))]
+    pub image_id: ImageId,
 }
 
 impl Pull {
     pub async fn exec(self) -> Result<()> {
-        let destination_dir = std::env::current_dir()?.join(&self.image);
+        let destination_dir = std::env::current_dir()?.join(&self.image_id.name);
         create_dir_all(&destination_dir).await?;
 
         let mut registry = Registry::new("https://registry-1.docker.io");
         registry
             .pull_image(
-                &self.image,
-                &self.tag,
+                &self.image_id.name,
+                &self.image_id.tag,
                 &Os::Linux,
                 &Arch::Amd64,
                 &destination_dir,
             )
             .await?;
 
-        let image = Image::new(self.image, self.tag, destination_dir).await?;
+        let image = Image::new(self.image_id.name, self.image_id.tag, destination_dir).await?;
 
         for layer_path in image.layer_paths() {
             let tar_gz = File::open(&layer_path).await?;

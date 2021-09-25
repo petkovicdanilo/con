@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     container::{capabilities, cgroups, mounts, namespaces, overlayfs::Bundle},
-    image::Image,
+    image::{parse_image_id, Image, ImageId},
 };
 use anyhow::{bail, Result};
 use clap::Clap;
@@ -23,10 +23,9 @@ pub struct Run {
     #[clap(flatten)]
     cgroups_config: CgroupsConfig,
 
-    image: String,
 
-    #[clap(default_value = "latest")]
-    tag: String,
+    #[clap(name = "IMAGE", parse(from_str = parse_image_id))]
+    image_id: ImageId,
 
     command: Vec<String>,
 }
@@ -48,12 +47,11 @@ pub struct CgroupsConfig {
 
 impl Run {
     pub async fn exec(self) -> Result<()> {
-        let base_path = Path::new(&std::env::current_dir()?).join(&self.image);
+        let base_path = Path::new(&std::env::current_dir()?).join(&self.image_id.name);
 
         if !base_path.exists() {
             let pull = Pull {
-                image: self.image.clone(),
-                tag: self.tag.clone(),
+                image_id: self.image_id.clone(),
             };
 
             pull.exec().await?;
@@ -63,7 +61,7 @@ impl Run {
             bail!("Image directory not found");
         }
 
-        let image = Image::new(self.image, self.tag, base_path).await?;
+        let image = Image::new(self.image_id.name, self.image_id.tag, base_path).await?;
 
         let container_dir = &std::env::current_dir()?.join(format!("{}-container", &image.name));
         create_dir(&container_dir).await?;

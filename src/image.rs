@@ -4,6 +4,25 @@ use std::path::PathBuf;
 
 use crate::util::blob_path;
 
+#[derive(Clone, Debug)]
+pub struct ImageId {
+    pub name: String,
+    pub tag: String,
+}
+
+pub fn parse_image_id(s: &str) -> ImageId {
+    match s.split_once(":") {
+        Some((name, tag)) => ImageId {
+            name: name.to_string(),
+            tag: tag.to_string(),
+        },
+        None => ImageId {
+            name: s.to_string(),
+            tag: String::from("latest"),
+        },
+    }
+}
+
 pub struct Image {
     pub name: String,
     pub tag: String,
