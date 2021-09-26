@@ -1,18 +1,20 @@
 use std::{
     path::Path,
     process::{Command, Stdio},
+    str::FromStr,
 };
 
 use crate::{
     container::{
         capabilities, cgroups,
+        env::{self, EnvVariable},
         mounts::{self, Volume},
         namespaces,
         overlayfs::Bundle,
     },
     image::{parse_image_id, Image, ImageId},
 };
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use clap::Clap;
 use nix::unistd;
 use tokio::fs::create_dir;
@@ -32,6 +34,10 @@ pub struct Run {
     #[clap(short, long, multiple_occurrences(true), number_of_values = 1)]
     volumes: Vec<Volume>,
 
+    /// Set environment variables
+    #[clap(short, long, multiple_occurrences(true), number_of_values = 1)]
+    env: Vec<EnvVariable>,
+
     #[clap(name = "IMAGE", parse(from_str = parse_image_id))]
     image_id: ImageId,
 
@@ -39,7 +45,7 @@ pub struct Run {
 }
 
 impl Run {
-    pub async fn exec(self) -> Result<()> {
+    pub async fn exec(mut self) -> Result<()> {
         let base_path = Path::new(&std::env::current_dir()?).join(&self.image_id.name);
 
         if !base_path.exists() {
@@ -60,9 +66,26 @@ impl Run {
         create_dir(&container_dir).await?;
         let bundle = Bundle::new(&image, &container_dir)?;
 
+        if let Some(config) = image.configuration.config() {
+            if let Some(env) = config.env() {
+                let config_vars = env
+                    .iter()
+                    .map(|var| -> Result<EnvVariable> {
+                        match EnvVariable::from_str(var) {
+                            Ok(var) => Ok(var),
+                            Err(err) => Err(anyhow!(err)),
+                        }
+                    })
+                    .collect::<Result<Vec<EnvVariable>>>()?;
+
+                self.env.extend(config_vars);
+            }
+        }
+
         let hostname = self.hostname;
         let command = self.command;
         let volumes = self.volumes;
+        let env = self.env;
 
         cgroups::run(&self.cgroups_config)?;
         mounts::mount_volumes(volumes.iter(), &bundle).unwrap();
@@ -79,14 +102,7 @@ impl Run {
                 nix::env::clearenv().unwrap();
             };
 
-            if let Some(config) = image.configuration.config() {
-                if let Some(env) = config.env() {
-                    for var in env {
-                        let (key, value) = var.split_once("=").unwrap();
-                        std::env::set_var(key, value);
-                    }
-                }
-            }
+            env::set_variables(env.iter()).unwrap();
 
             let mut c = Command::new(command[0].as_str())
                 .args(command[1..].as_ref())
