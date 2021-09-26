@@ -71,6 +71,16 @@ impl<'a> Bundle<'a> {
     pub fn upperdir_path(&self) -> PathBuf {
         Self::upperdir_path_inner(&self.dir)
     }
+
+    pub fn host_path_from_container_path(&self, inner_path: &PathBuf) -> Result<PathBuf> {
+        let path = if inner_path.starts_with("/") {
+            inner_path.strip_prefix("/")?
+        } else {
+            inner_path
+        };
+
+        Ok(self.root_path().join(&path))
+    }
 }
 
 impl<'a> Drop for Bundle<'a> {

@@ -4,7 +4,12 @@ use std::{
 };
 
 use crate::{
-    container::{capabilities, cgroups, mounts, namespaces, overlayfs::Bundle},
+    container::{
+        capabilities, cgroups,
+        mounts::{self, Volume},
+        namespaces,
+        overlayfs::Bundle,
+    },
     image::{parse_image_id, Image, ImageId},
 };
 use anyhow::{bail, Result};
@@ -23,6 +28,9 @@ pub struct Run {
     #[clap(flatten)]
     cgroups_config: CgroupsConfig,
 
+    /// Bind mount a volume
+    #[clap(short, long, multiple_occurrences(true), number_of_values = 1)]
+    volumes: Vec<Volume>,
 
     #[clap(name = "IMAGE", parse(from_str = parse_image_id))]
     image_id: ImageId,
@@ -69,14 +77,16 @@ impl Run {
 
         let hostname = self.hostname;
         let command = self.command;
+        let volumes = self.volumes;
 
         cgroups::run(&self.cgroups_config)?;
+        mounts::mount_volumes(volumes.iter(), &bundle).unwrap();
 
         namespaces::run(Box::new(|| {
             unistd::sethostname(&hostname).unwrap();
 
             mounts::change_root(&bundle).unwrap();
-            mounts::special_mount().unwrap();
+            mounts::mount_special().unwrap();
 
             capabilities::run().unwrap();
 
@@ -103,11 +113,12 @@ impl Run {
 
             c.wait().expect("error");
 
-            mounts::special_unmount().unwrap();
+            mounts::unmount_special().unwrap();
 
             return 0;
         }))?;
 
+        mounts::unmount_volumes(volumes.iter(), &bundle).unwrap();
         Ok(())
     }
 }
