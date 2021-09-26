@@ -21,8 +21,9 @@ use nix::unistd;
 
 use super::pull::Pull;
 
+/// Run a command in a new container
 #[derive(Clap, Debug)]
-#[clap(author, about, version)]
+#[clap(author, version)]
 pub struct Run {
     /// Container host name
     #[clap(long, default_value = "container")]

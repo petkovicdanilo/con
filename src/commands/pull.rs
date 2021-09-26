@@ -8,8 +8,9 @@ use tokio::fs::{create_dir_all, remove_file, rename, File};
 
 use crate::image::{parse_image_id, Image, ImageId};
 
+/// Pull an image or a repository from a registry
 #[derive(Clap, Debug)]
-#[clap(author, about, version)]
+#[clap(author, version)]
 pub struct Pull {
     #[clap(name = "IMAGE", parse(from_str = parse_image_id))]
     pub image_id: ImageId,
