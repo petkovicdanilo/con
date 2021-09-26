@@ -67,6 +67,20 @@ impl Run {
         let bundle = Bundle::new(&image, &container_dir)?;
 
         if let Some(config) = image.configuration.config() {
+            if let Some(volumes) = config.volumes() {
+                let config_volumes = volumes
+                    .iter()
+                    .map(|volume| -> Result<Volume> {
+                        match Volume::from_str(volume) {
+                            Ok(volume) => Ok(volume),
+                            Err(err) => Err(anyhow!(err)),
+                        }
+                    })
+                    .collect::<Result<Vec<Volume>>>()?;
+
+                self.volumes.extend(config_volumes);
+            }
+
             if let Some(env) = config.env() {
                 let config_vars = env
                     .iter()
