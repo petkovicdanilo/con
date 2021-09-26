@@ -12,14 +12,30 @@ pub struct ImageId {
 
 pub fn parse_image_id(s: &str) -> ImageId {
     match s.split_once(":") {
-        Some((name, tag)) => ImageId {
-            name: name.to_string(),
-            tag: tag.to_string(),
-        },
-        None => ImageId {
-            name: s.to_string(),
-            tag: String::from("latest"),
-        },
+        Some((name, tag)) => {
+            let name = normalize_image_name(name);
+
+            ImageId {
+                name,
+                tag: tag.to_string(),
+            }
+        }
+        None => {
+            let name = normalize_image_name(&s);
+
+            ImageId {
+                name,
+                tag: String::from("latest"),
+            }
+        }
+    }
+}
+
+fn normalize_image_name(name: &str) -> String {
+    if name.contains("/") {
+        name.to_string()
+    } else {
+        format!("library/{}", name)
     }
 }
 
