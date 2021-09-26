@@ -10,12 +10,11 @@ enum Opt {
     Run(run::Run),
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     let opt = Opt::parse();
 
     match opt {
-        Opt::Pull(pull) => pull.exec().await,
-        Opt::Run(run) => run.exec().await,
+        Opt::Pull(pull) => pull.exec(),
+        Opt::Run(run) => run.exec(),
     }
 }

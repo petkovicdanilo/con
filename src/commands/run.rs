@@ -1,4 +1,5 @@
 use std::{
+    fs::create_dir,
     path::Path,
     process::{Command, Stdio},
     str::FromStr,
@@ -17,7 +18,6 @@ use crate::{
 use anyhow::{anyhow, bail, Result};
 use clap::Clap;
 use nix::unistd;
-use tokio::fs::create_dir;
 
 use super::pull::Pull;
 
@@ -45,7 +45,7 @@ pub struct Run {
 }
 
 impl Run {
-    pub async fn exec(mut self) -> Result<()> {
+    pub fn exec(mut self) -> Result<()> {
         let base_path = Path::new(&std::env::current_dir()?).join(&self.image_id.name);
 
         if !base_path.exists() {
@@ -53,17 +53,17 @@ impl Run {
                 image_id: self.image_id.clone(),
             };
 
-            pull.exec().await?;
+            pull.exec()?;
         }
 
         if !base_path.is_dir() {
             bail!("Image directory not found");
         }
 
-        let image = Image::new(self.image_id.name, self.image_id.tag, base_path).await?;
+        let image = Image::new(self.image_id.name, self.image_id.tag, base_path)?;
 
         let container_dir = &std::env::current_dir()?.join(format!("{}-container", &image.name));
-        create_dir(&container_dir).await?;
+        create_dir(&container_dir)?;
         let bundle = Bundle::new(&image, &container_dir)?;
 
         if let Some(config) = image.configuration.config() {

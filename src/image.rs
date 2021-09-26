@@ -33,7 +33,7 @@ pub struct Image {
 }
 
 impl Image {
-    pub async fn new(name: String, tag: String, base_path: PathBuf) -> Result<Self> {
+    pub fn new(name: String, tag: String, base_path: PathBuf) -> Result<Self> {
         let index = ImageIndex::from_file(base_path.join("index.json"))?;
 
         let manifest_digest = &index.manifests()[0].digest();
