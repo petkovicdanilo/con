@@ -1,12 +1,26 @@
 use anyhow::Result;
 use cgroups_rs::{cgroup_builder::CgroupBuilder, CgroupPid, MaxValue};
+use clap::Clap;
 use nix::unistd::getpid;
 
-use crate::commands::run::CgroupsConfig;
+#[derive(Clap, Debug)]
+pub struct Config {
+    /// CPU shares (relative weight)
+    #[clap(short, long, default_value = "256")]
+    pub(crate) cpu_shares: u64,
+
+    /// Memory limit in bytes
+    #[clap(short, long, default_value = "1073741824")]
+    pub(crate) memory: u64,
+
+    /// Tune container pids limit (0 for unlimited)
+    #[clap(short, long, default_value = "0")]
+    pub(crate) pids_limit: u32,
+}
 
 const CGROUP_NAME: &str = "con";
 
-pub fn run(config: &CgroupsConfig) -> Result<()> {
+pub fn run(config: &Config) -> Result<()> {
     let hierarchy = cgroups_rs::hierarchies::auto();
 
     let cgroup = CgroupBuilder::new(CGROUP_NAME)

@@ -26,7 +26,7 @@ pub struct Run {
     hostname: String,
 
     #[clap(flatten)]
-    cgroups_config: CgroupsConfig,
+    cgroups_config: cgroups::Config,
 
     /// Bind mount a volume
     #[clap(short, long, multiple_occurrences(true), number_of_values = 1)]
@@ -36,21 +36,6 @@ pub struct Run {
     image_id: ImageId,
 
     command: Vec<String>,
-}
-
-#[derive(Clap, Debug)]
-pub struct CgroupsConfig {
-    /// CPU shares (relative weight)
-    #[clap(short, long, default_value = "256")]
-    pub(crate) cpu_shares: u64,
-
-    /// Memory limit in bytes
-    #[clap(short, long, default_value = "1073741824")]
-    pub(crate) memory: u64,
-
-    /// Tune container pids limit (0 for unlimited)
-    #[clap(short, long, default_value = "0")]
-    pub(crate) pids_limit: u32,
 }
 
 impl Run {
