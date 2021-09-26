@@ -134,6 +134,8 @@ impl Run {
         }))?;
 
         mounts::unmount_volumes(volumes.iter(), &bundle).unwrap();
+        // bundle gets removed from disk
+
         Ok(())
     }
 }

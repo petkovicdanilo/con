@@ -85,7 +85,6 @@ impl<'a> Bundle<'a> {
 
 impl<'a> Drop for Bundle<'a> {
     fn drop(&mut self) {
-        println!("Removing bundle...");
         umount(self.root_path().as_path()).unwrap();
         remove_dir_all(self.dir).unwrap();
     }
