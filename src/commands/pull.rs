@@ -1,10 +1,14 @@
 use anyhow::Result;
+use async_compression::tokio::bufread::GzipDecoder;
 use clap::Clap;
-use flate2::read::GzDecoder;
+use futures::future::join_all;
 use oci_registry::registry::Registry;
 use oci_spec::image::{Arch, Os};
-use tar::Archive;
-use tokio::fs::{create_dir_all, remove_file, rename, File};
+use tokio::{
+    fs::{create_dir_all, remove_file, rename, File},
+    io::BufReader,
+};
+use tokio_tar::Archive;
 
 use crate::image::{parse_image_id, Image, ImageId};
 
@@ -39,25 +43,33 @@ impl Pull {
 
                 let image = Image::new(self.image_id.name, self.image_id.tag, destination_dir)?;
 
+                let mut tasks = vec![];
+
                 for layer_path in image.layer_paths() {
-                    let tar_gz = File::open(&layer_path).await?;
-                    let tar = GzDecoder::new(tar_gz.into_std().await);
-                    let mut archive = Archive::new(tar);
+                    tasks.push(tokio::spawn(async move {
+                        let tar_gz = File::open(&layer_path).await?;
+                        let tar = GzipDecoder::new(BufReader::new(tar_gz));
+                        let mut archive = Archive::new(tar);
 
-                    let digest = layer_path.file_name().unwrap().to_str().unwrap();
-                    let unpacked_path = layer_path
-                        .parent()
-                        .unwrap()
-                        .join(format!("{}-unpacked", digest));
-                    archive.unpack(&unpacked_path)?;
+                        let digest = layer_path.file_name().unwrap().to_str().unwrap();
+                        let unpacked_path = layer_path
+                            .parent()
+                            .unwrap()
+                            .join(format!("{}-unpacked", digest));
+                        create_dir_all(&unpacked_path).await?;
+                        archive.unpack(&unpacked_path).await?;
 
-                    remove_file(&layer_path).await?;
-                    rename(
-                        &unpacked_path,
-                        &unpacked_path.parent().unwrap().join(digest),
-                    )
-                    .await?;
+                        remove_file(&layer_path).await?;
+                        rename(
+                            &unpacked_path,
+                            &unpacked_path.parent().unwrap().join(digest),
+                        )
+                        .await?;
+
+                        anyhow::Result::<()>::Ok(())
+                    }));
                 }
+                join_all(tasks).await;
 
                 Ok::<(), anyhow::Error>(())
             })?;
