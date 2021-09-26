@@ -22,6 +22,7 @@ use nix::unistd;
 use super::pull::Pull;
 
 #[derive(Clap, Debug)]
+#[clap(author, about, version)]
 pub struct Run {
     /// Container host name
     #[clap(long, default_value = "container")]
