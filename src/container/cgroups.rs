@@ -1,5 +1,8 @@
 use anyhow::Result;
-use cgroups_rs::{cgroup_builder::CgroupBuilder, CgroupPid, MaxValue};
+use cgroups_rs::{
+    cgroup_builder::CgroupBuilder, cpu::CpuController, memory::MemController, pid::PidController,
+    Cgroup, CgroupPid, Controller, MaxValue,
+};
 use clap::Clap;
 use nix::unistd::getpid;
 
@@ -18,12 +21,14 @@ pub struct Config {
     pub(crate) pids_limit: u32,
 }
 
-const CGROUP_NAME: &str = "con";
+fn cgroup_name(container_name: &str) -> String {
+    format!("con/{}", container_name)
+}
 
-pub fn run(config: &Config) -> Result<()> {
+pub fn run(config: &Config, container_name: &str) -> Result<()> {
     let hierarchy = cgroups_rs::hierarchies::auto();
 
-    let cgroup = CgroupBuilder::new(CGROUP_NAME)
+    let cgroup = CgroupBuilder::new(&cgroup_name(&container_name))
         .cpu()
         .shares(config.cpu_shares)
         .done()
@@ -39,11 +44,28 @@ pub fn run(config: &Config) -> Result<()> {
         .done()
         .build(hierarchy);
 
-    // automatically delete cgroup after process exits
-    cgroup.set_notify_on_release(true)?;
+    let pid = CgroupPid::from(getpid().as_raw() as u64);
 
-    let pid = getpid().as_raw() as u64;
-    cgroup.add_task(CgroupPid::from(pid))?;
+    let cpu_controller: &CpuController = cgroup.controller_of().unwrap();
+    cpu_controller.set_notify_on_release(true)?;
+    cpu_controller.add_task(&pid)?;
+
+    let memory_controller: &MemController = cgroup.controller_of().unwrap();
+    memory_controller.set_notify_on_release(true)?;
+    memory_controller.add_task(&pid)?;
+
+    let pids_controller: &PidController = cgroup.controller_of().unwrap();
+    pids_controller.set_notify_on_release(true)?;
+    pids_controller.add_task(&pid)?;
+
+    Ok(())
+}
+
+pub fn remove_cgroups(container_name: &str) -> Result<()> {
+    let hierarchy = cgroups_rs::hierarchies::auto();
+
+    let cgroup = Cgroup::load(hierarchy, cgroup_name(container_name));
+    cgroup.delete()?;
 
     Ok(())
 }

@@ -1,14 +1,9 @@
-use std::{
-    fs::create_dir,
-    path::Path,
-    process::{Command, Stdio},
-    str::FromStr,
-};
+use std::{ffi::CString, fs::create_dir, path::Path, str::FromStr};
 
 use crate::{
     container::{
         capabilities, cgroups,
-        env::{self, EnvVariable},
+        env::EnvVariable,
         mounts::{self, Volume},
         namespaces,
         overlayfs::Bundle,
@@ -17,7 +12,12 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Result};
 use clap::Clap;
-use nix::unistd;
+use nix::{
+    mount::{mount, MsFlags},
+    sched::{clone, CloneFlags},
+    sys::wait::{waitpid, WaitPidFlag},
+    unistd::{self, execve},
+};
 
 use super::pull::Pull;
 
@@ -48,7 +48,8 @@ pub struct Run {
 
 impl Run {
     pub fn exec(mut self) -> Result<()> {
-        let base_path = Path::new(&std::env::current_dir()?).join(&self.image_id.name);
+        let curr_dir = std::env::current_dir()?;
+        let base_path = Path::new(&curr_dir).join(&self.image_id.name);
 
         if !base_path.exists() {
             let pull = Pull {
@@ -63,10 +64,6 @@ impl Run {
         }
 
         let image = Image::new(self.image_id.name, self.image_id.tag, base_path)?;
-
-        let container_dir = std::env::current_dir()?.join(format!("{}-container", &image.name));
-        create_dir(&container_dir)?;
-        let mut bundle = Bundle::new(image.clone(), container_dir)?;
 
         if let Some(config) = image.configuration.config() {
             if let Some(volumes) = config.volumes() {
@@ -102,43 +99,84 @@ impl Run {
         let command = self.command;
         let volumes = self.volumes;
         let env = self.env;
+        let cgroups_config = self.cgroups_config;
 
-        cgroups::run(&self.cgroups_config)?;
+        namespaces::run(|| {
+            let container_dir = std::env::current_dir()?.join(format!("{}-container", &image.name));
+            create_dir(&container_dir)?;
 
-        bundle.mount_overlayfs()?;
-        bundle.mount_volumes(volumes.into_iter())?;
+            let bundle = Bundle::new(image.clone(), container_dir)?;
 
-        namespaces::run(Box::new(|| {
-            unistd::sethostname(&hostname).unwrap();
+            bundle.mount_overlayfs()?;
+            bundle.mount_volumes(volumes.iter())?;
 
-            mounts::change_root(&bundle).unwrap();
-            mounts::mount_special().unwrap();
+            let oldproc = &bundle.root_path().join(".oldproc");
+            create_dir(oldproc)?;
+            mount(
+                Some("/proc"),
+                oldproc,
+                None::<&str>,
+                MsFlags::MS_REC | MsFlags::MS_BIND,
+                None::<&str>,
+            )?;
 
-            capabilities::run().unwrap();
+            let sys = &bundle.root_path().join("sys");
+            mount(
+                Some("/sys"),
+                sys,
+                None::<&str>,
+                MsFlags::MS_REC | MsFlags::MS_BIND,
+                None::<&str>,
+            )?;
 
-            unsafe {
-                nix::env::clearenv().unwrap();
-            };
+            mounts::mount_special(&bundle)?;
+            unistd::sethostname(&hostname)?;
 
-            env::set_variables(env.iter()).unwrap();
+            capabilities::run()?;
 
-            let mut c = Command::new(command[0].as_str())
-                .args(command[1..].as_ref())
-                .stdin(Stdio::inherit())
-                .stdout(Stdio::inherit())
-                .stderr(Stdio::inherit())
-                .spawn()
-                .expect("failed to start");
+            let child = Box::new(|| {
+                cgroups::run(&cgroups_config, &hostname).unwrap();
 
-            c.wait().expect("error");
+                mounts::change_root(&bundle).unwrap();
 
-            mounts::unmount_special().unwrap();
+                execve(
+                    CString::new(command[0].clone()).unwrap().as_c_str(),
+                    command[1..]
+                        .into_iter()
+                        .map(|c| CString::new(c.to_owned()).unwrap().as_c_str().to_owned())
+                        .collect::<Vec<_>>()
+                        .as_slice(),
+                    &env.iter()
+                        .map(|e| {
+                            CString::new(format!("{}={}", e.key, e.value))
+                                .unwrap()
+                                .as_c_str()
+                                .to_owned()
+                        })
+                        .collect::<Vec<_>>()
+                        .as_slice(),
+                )
+                .expect("Error executing command");
 
-            return 0;
-        }))?;
+                return 0;
+            });
 
-        bundle.unmount_volumes()?;
-        bundle.unmount_overlayfs()?;
+            let child_pid = clone(
+                child,
+                &mut [0u8; 1024 * 1024],
+                CloneFlags::CLONE_NEWNS,
+                None,
+            )?;
+            waitpid(child_pid, Some(WaitPidFlag::__WALL))?;
+
+            cgroups::remove_cgroups(&hostname)?;
+
+            mounts::unmount_special(&bundle)?;
+            bundle.unmount_volumes(volumes.iter())?;
+            bundle.unmount_overlayfs()?;
+
+            Ok::<(), anyhow::Error>(())
+        })?;
 
         Ok(())
     }

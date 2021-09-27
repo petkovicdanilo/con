@@ -62,29 +62,44 @@ pub fn change_root(bundle: &Bundle) -> Result<()> {
     Ok(())
 }
 
-pub fn mount_special() -> Result<()> {
+pub fn mount_special(bundle: &Bundle) -> Result<()> {
+    let proc_path = bundle.root_path().join("proc");
+    if !proc_path.exists() {
+        create_dir(&proc_path)?;
+    }
+
     mount(
         Some("proc"),
-        "/proc",
+        &proc_path,
         Some("proc"),
-        MsFlags::empty(),
+        MsFlags::MS_NOSUID,
         None::<&str>,
     )?;
 
+    let oldproc_path = bundle.root_path().join(".oldproc");
+    umount2(&oldproc_path, MntFlags::MNT_DETACH)?;
+    remove_dir(&oldproc_path)?;
+
+    let tmp_path = bundle.root_path().join("tmp");
+    if !tmp_path.exists() {
+        create_dir(&tmp_path)?;
+    }
+
     mount(
         Some("tmp"),
-        "/tmp",
+        &bundle.root_path().join("tmp"),
         Some("tmpfs"),
-        MsFlags::empty(),
+        MsFlags::MS_NOSUID | MsFlags::MS_NODEV | MsFlags::MS_NOEXEC | MsFlags::MS_NOATIME,
         None::<&str>,
     )?;
 
     Ok(())
 }
 
-pub fn unmount_special() -> Result<()> {
-    umount("/proc")?;
-    umount("/tmp")?;
+pub fn unmount_special(bundle: &Bundle) -> Result<()> {
+    umount(&bundle.root_path().join("proc"))?;
+    umount(&bundle.root_path().join("tmp"))?;
+    umount2(&bundle.root_path().join("sys"), MntFlags::MNT_DETACH)?;
 
     Ok(())
 }

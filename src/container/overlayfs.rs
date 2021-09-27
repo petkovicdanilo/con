@@ -13,7 +13,6 @@ use super::mounts::Volume;
 pub struct Bundle {
     pub(crate) dir: PathBuf,
     pub(crate) image: Image,
-    pub(crate) volumes: Vec<Volume>,
 }
 
 impl Bundle {
@@ -27,11 +26,7 @@ impl Bundle {
         let upperdir_path = Self::upperdir_path_inner(&dir);
         create_dir(&upperdir_path)?;
 
-        Ok(Self {
-            image,
-            dir,
-            volumes: Vec::new(),
-        })
+        Ok(Self { image, dir })
     }
 
     fn root_path_inner(dir: &PathBuf) -> PathBuf {
@@ -96,15 +91,15 @@ impl Bundle {
     }
 
     pub fn unmount_overlayfs(&self) -> Result<()> {
-        umount(self.root_path().as_path())?;
+        umount(&self.root_path())?;
         remove_dir_all(&self.dir)?;
 
         Ok(())
     }
 
-    pub fn mount_volumes<I>(&mut self, volumes: I) -> Result<()>
+    pub fn mount_volumes<'a, I>(&self, volumes: I) -> Result<()>
     where
-        I: Iterator<Item = Volume>,
+        I: Iterator<Item = &'a Volume>,
     {
         for volume in volumes {
             let destination_full_path = self.host_path_from_container_path(&volume.destination)?;
@@ -120,21 +115,18 @@ impl Bundle {
                 MsFlags::MS_BIND,
                 None::<&str>,
             )?;
-
-            self.volumes.push(volume);
         }
 
         Ok(())
     }
 
-    pub fn unmount_volumes(&mut self) -> Result<()> {
-        for volume in &self.volumes {
-            let destination_full_path = self.host_path_from_container_path(&volume.destination)?;
-
-            umount(&destination_full_path)?;
+    pub fn unmount_volumes<'a, I>(&self, volumes: I) -> Result<()>
+    where
+        I: Iterator<Item = &'a Volume>,
+    {
+        for volume in volumes {
+            umount(&self.host_path_from_container_path(&volume.destination)?)?;
         }
-
-        self.volumes.clear();
 
         Ok(())
     }
