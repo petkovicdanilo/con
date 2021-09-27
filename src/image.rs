@@ -39,6 +39,7 @@ fn normalize_image_name(name: &str) -> String {
     }
 }
 
+#[derive(Clone)]
 pub struct Image {
     pub name: String,
     pub tag: String,

@@ -88,39 +88,3 @@ pub fn unmount_special() -> Result<()> {
 
     Ok(())
 }
-
-pub fn mount_volumes<'a, I>(volumes: I, bundle: &Bundle) -> Result<()>
-where
-    I: Iterator<Item = &'a Volume>,
-{
-    for volume in volumes {
-        let destination_full_path = bundle.host_path_from_container_path(&volume.destination)?;
-
-        if !destination_full_path.exists() {
-            create_dir(&destination_full_path)?;
-        }
-
-        mount(
-            Some(&volume.source),
-            &destination_full_path,
-            None::<&str>,
-            MsFlags::MS_BIND,
-            None::<&str>,
-        )?;
-    }
-
-    Ok(())
-}
-
-pub fn unmount_volumes<'a, I>(volumes: I, bundle: &Bundle) -> Result<()>
-where
-    I: Iterator<Item = &'a Volume>,
-{
-    for volume in volumes {
-        let destination_full_path = bundle.host_path_from_container_path(&volume.destination)?;
-
-        umount(&destination_full_path)?;
-    }
-
-    Ok(())
-}

@@ -64,9 +64,9 @@ impl Run {
 
         let image = Image::new(self.image_id.name, self.image_id.tag, base_path)?;
 
-        let container_dir = &std::env::current_dir()?.join(format!("{}-container", &image.name));
+        let container_dir = std::env::current_dir()?.join(format!("{}-container", &image.name));
         create_dir(&container_dir)?;
-        let bundle = Bundle::new(&image, &container_dir)?;
+        let mut bundle = Bundle::new(image.clone(), container_dir)?;
 
         if let Some(config) = image.configuration.config() {
             if let Some(volumes) = config.volumes() {
@@ -104,7 +104,9 @@ impl Run {
         let env = self.env;
 
         cgroups::run(&self.cgroups_config)?;
-        mounts::mount_volumes(volumes.iter(), &bundle).unwrap();
+
+        bundle.mount_overlayfs()?;
+        bundle.mount_volumes(volumes.into_iter())?;
 
         namespaces::run(Box::new(|| {
             unistd::sethostname(&hostname).unwrap();
@@ -135,8 +137,8 @@ impl Run {
             return 0;
         }))?;
 
-        mounts::unmount_volumes(volumes.iter(), &bundle).unwrap();
-        // bundle gets removed from disk
+        bundle.unmount_volumes()?;
+        bundle.unmount_overlayfs()?;
 
         Ok(())
     }
