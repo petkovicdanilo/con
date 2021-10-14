@@ -2,7 +2,8 @@ use std::{ffi::CString, fs::create_dir, path::Path, str::FromStr};
 
 use crate::{
     container::{
-        capabilities, cgroups,
+        capabilities,
+        cgroups::{self, CGroup},
         env::EnvVariable,
         mounts::{self, Volume},
         namespaces,
@@ -16,7 +17,7 @@ use nix::{
     mount::{mount, MsFlags},
     sched::{clone, CloneFlags},
     sys::wait::{waitpid, WaitPidFlag},
-    unistd::{self, execve},
+    unistd::{self, execve, getpid},
 };
 
 use super::pull::Pull;
@@ -134,8 +135,11 @@ impl Run {
 
             capabilities::run()?;
 
+            let mut cgroup = CGroup::new(&hostname, &cgroups_config)?;
+
             let child = Box::new(|| {
-                cgroups::run(&cgroups_config, &hostname).unwrap();
+                let pid = getpid().as_raw() as u64;
+                cgroup.add_process(pid).unwrap();
 
                 mounts::change_root(&bundle).unwrap();
 
@@ -169,8 +173,7 @@ impl Run {
             )?;
             waitpid(child_pid, Some(WaitPidFlag::__WALL))?;
 
-            cgroups::remove_cgroups(&hostname)?;
-
+            cgroup.delete()?;
             mounts::unmount_special(&bundle)?;
             bundle.unmount_volumes(volumes.iter())?;
             bundle.unmount_overlayfs()?;

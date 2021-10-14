@@ -4,7 +4,6 @@ use cgroups_rs::{
     Cgroup, CgroupPid, Controller, MaxValue,
 };
 use clap::Clap;
-use nix::unistd::getpid;
 
 #[derive(Clap, Debug)]
 pub struct Config {
@@ -25,47 +24,56 @@ fn cgroup_name(container_name: &str) -> String {
     format!("con/{}", container_name)
 }
 
-pub fn run(config: &Config, container_name: &str) -> Result<()> {
-    let hierarchy = cgroups_rs::hierarchies::auto();
-
-    let cgroup = CgroupBuilder::new(&cgroup_name(&container_name))
-        .cpu()
-        .shares(config.cpu_shares)
-        .done()
-        .memory()
-        .memory_hard_limit(config.memory as i64)
-        .done()
-        .pid()
-        .maximum_number_of_processes(if config.pids_limit == 0 {
-            MaxValue::Max
-        } else {
-            MaxValue::Value(config.pids_limit as i64)
-        })
-        .done()
-        .build(hierarchy);
-
-    let pid = CgroupPid::from(getpid().as_raw() as u64);
-
-    let cpu_controller: &CpuController = cgroup.controller_of().unwrap();
-    cpu_controller.set_notify_on_release(true)?;
-    cpu_controller.add_task(&pid)?;
-
-    let memory_controller: &MemController = cgroup.controller_of().unwrap();
-    memory_controller.set_notify_on_release(true)?;
-    memory_controller.add_task(&pid)?;
-
-    let pids_controller: &PidController = cgroup.controller_of().unwrap();
-    pids_controller.set_notify_on_release(true)?;
-    pids_controller.add_task(&pid)?;
-
-    Ok(())
+pub struct CGroup {
+    pub name: String,
+    pub inner: Cgroup,
 }
 
-pub fn remove_cgroups(container_name: &str) -> Result<()> {
-    let hierarchy = cgroups_rs::hierarchies::auto();
+impl CGroup {
+    pub fn new(container_name: &str, config: &Config) -> Result<Self> {
+        let hierarchy = cgroups_rs::hierarchies::auto();
+        let name = cgroup_name(&container_name);
 
-    let cgroup = Cgroup::load(hierarchy, cgroup_name(container_name));
-    cgroup.delete()?;
+        let inner = CgroupBuilder::new(&name)
+            .cpu()
+            .shares(config.cpu_shares)
+            .done()
+            .memory()
+            .memory_hard_limit(config.memory as i64)
+            .done()
+            .pid()
+            .maximum_number_of_processes(if config.pids_limit == 0 {
+                MaxValue::Max
+            } else {
+                MaxValue::Value(config.pids_limit as i64)
+            })
+            .done()
+            .build(hierarchy);
 
-    Ok(())
+        Ok(Self { name, inner })
+    }
+
+    pub fn add_process(&self, pid: u64) -> Result<()> {
+        let pid = CgroupPid::from(pid);
+
+        let cpu_controller: &CpuController = self.inner.controller_of().unwrap();
+        cpu_controller.set_notify_on_release(true)?;
+        cpu_controller.add_task(&pid)?;
+
+        let memory_controller: &MemController = self.inner.controller_of().unwrap();
+        memory_controller.set_notify_on_release(true)?;
+        memory_controller.add_task(&pid)?;
+
+        let pids_controller: &PidController = self.inner.controller_of().unwrap();
+        pids_controller.set_notify_on_release(true)?;
+        pids_controller.add_task(&pid)?;
+
+        Ok(())
+    }
+
+    pub fn delete(&mut self) -> Result<()> {
+        self.inner.delete()?;
+
+        Ok(())
+    }
 }
