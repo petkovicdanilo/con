@@ -139,9 +139,11 @@ impl Run {
 
             let child = Box::new(|| {
                 let pid = getpid().as_raw() as u64;
-                cgroup.add_process(pid).unwrap();
+                cgroup
+                    .add_process(pid)
+                    .expect("Failed adding process to cgroup");
 
-                mounts::change_root(&bundle).unwrap();
+                mounts::change_root(&bundle).expect("Failed setting container root file system");
 
                 execve(
                     CString::new(command[0].clone()).unwrap().as_c_str(),
