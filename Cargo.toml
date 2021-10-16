@@ -15,7 +15,7 @@ caps = { git = "https://github.com/lucab/caps-rs", rev = "cb54844" }
 cgroups-rs = "0.2"
 clap = "3.0.0-beta.4"
 nix = "0.22"
-oci-registry = { git = "https://github.com/petkovicdanilo/oci-registry-rs", rev = "dd7d936" }
+oci-registry = { git = "https://github.com/petkovicdanilo/oci-registry-rs", rev = "c2d24cf", features = ["indicatif"] }
 oci-spec = "0.5.1"
 tokio = { version = "1", features = ["full"] }
 tokio-tar = "0.3"

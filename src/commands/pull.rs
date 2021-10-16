@@ -30,9 +30,9 @@ impl Pull {
                 let destination_dir = std::env::current_dir()?.join(&self.image_id.name);
                 create_dir_all(&destination_dir).await?;
 
-                let mut registry = Registry::new("https://registry-1.docker.io");
+                let registry = Registry::new("https://registry-1.docker.io");
                 registry
-                    .pull_image(
+                    .pull_image_with_progress_bar(
                         &self.image_id.name,
                         &self.image_id.tag,
                         &Os::Linux,
