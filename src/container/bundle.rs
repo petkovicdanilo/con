@@ -1,14 +1,15 @@
 use std::{
-    fs::{create_dir, remove_dir_all},
+    fs::{create_dir, remove_dir, remove_dir_all},
     path::PathBuf,
 };
 
 use anyhow::Result;
-use nix::mount::{mount, umount, MsFlags};
+use nix::{
+    mount::{mount, umount, umount2, MntFlags, MsFlags},
+    unistd::{chdir, pivot_root},
+};
 
-use crate::image::Image;
-
-use super::mounts::Volume;
+use crate::{image::Image, volume::Volume};
 
 pub struct Bundle {
     pub(crate) dir: PathBuf,
@@ -93,6 +94,92 @@ impl Bundle {
     pub fn unmount_overlayfs(&self) -> Result<()> {
         umount(&self.root_path())?;
         remove_dir_all(&self.dir)?;
+
+        Ok(())
+    }
+
+    pub fn change_root(&self) -> Result<()> {
+        let root_path = self.root_path();
+        let old_root = root_path.join("old_root");
+        create_dir(&old_root)?;
+
+        mount(
+            None::<&str>,
+            "/",
+            None::<&str>,
+            MsFlags::MS_REC | MsFlags::MS_PRIVATE,
+            None::<&str>,
+        )?;
+
+        pivot_root(&root_path, &old_root)?;
+        chdir("/")?;
+
+        umount2("/old_root", MntFlags::MNT_DETACH)?;
+        remove_dir("/old_root")?;
+
+        Ok(())
+    }
+
+    pub fn mount_special(&self) -> Result<()> {
+        let root_path = self.root_path();
+
+        let oldproc = root_path.join(".oldproc");
+        create_dir(&oldproc)?;
+        mount(
+            Some("/proc"),
+            &oldproc,
+            None::<&str>,
+            MsFlags::MS_REC | MsFlags::MS_BIND,
+            None::<&str>,
+        )?;
+
+        let proc_path = root_path.join("proc");
+        if !proc_path.exists() {
+            create_dir(&proc_path)?;
+        }
+
+        mount(
+            Some("proc"),
+            &proc_path,
+            Some("proc"),
+            MsFlags::MS_NOSUID,
+            None::<&str>,
+        )?;
+
+        umount2(&oldproc, MntFlags::MNT_DETACH)?;
+        remove_dir(&oldproc)?;
+
+        let tmp_path = root_path.join("tmp");
+        if !tmp_path.exists() {
+            create_dir(&tmp_path)?;
+        }
+
+        mount(
+            Some("tmp"),
+            &root_path.join("tmp"),
+            Some("tmpfs"),
+            MsFlags::MS_NOSUID | MsFlags::MS_NODEV | MsFlags::MS_NOEXEC | MsFlags::MS_NOATIME,
+            None::<&str>,
+        )?;
+
+        let sys = root_path.join("sys");
+        mount(
+            Some("/sys"),
+            &sys,
+            None::<&str>,
+            MsFlags::MS_REC | MsFlags::MS_BIND,
+            None::<&str>,
+        )?;
+
+        Ok(())
+    }
+
+    pub fn unmount_special(&self) -> Result<()> {
+        let root_path = self.root_path();
+
+        umount(&root_path.join("proc"))?;
+        umount(&root_path.join("tmp"))?;
+        umount2(&root_path.join("sys"), MntFlags::MNT_DETACH)?;
 
         Ok(())
     }

@@ -2,19 +2,18 @@ use std::{ffi::CString, fs::create_dir, path::Path, str::FromStr};
 
 use crate::{
     container::{
+        bundle::Bundle,
         capabilities,
         cgroups::{self, CGroup},
         env::EnvVariable,
-        mounts::{self, Volume},
         namespaces,
-        overlayfs::Bundle,
     },
     image::{parse_image_id, Image, ImageId},
+    volume::Volume,
 };
 use anyhow::{anyhow, bail, Result};
 use clap::Clap;
 use nix::{
-    mount::{mount, MsFlags},
     sched::{clone, CloneFlags},
     sys::wait::{waitpid, WaitPidFlag},
     unistd::{self, execve, getpid},
@@ -110,27 +109,8 @@ impl Run {
 
             bundle.mount_overlayfs()?;
             bundle.mount_volumes(volumes.iter())?;
+            bundle.mount_special()?;
 
-            let oldproc = &bundle.root_path().join(".oldproc");
-            create_dir(oldproc)?;
-            mount(
-                Some("/proc"),
-                oldproc,
-                None::<&str>,
-                MsFlags::MS_REC | MsFlags::MS_BIND,
-                None::<&str>,
-            )?;
-
-            let sys = &bundle.root_path().join("sys");
-            mount(
-                Some("/sys"),
-                sys,
-                None::<&str>,
-                MsFlags::MS_REC | MsFlags::MS_BIND,
-                None::<&str>,
-            )?;
-
-            mounts::mount_special(&bundle)?;
             unistd::sethostname(&hostname)?;
 
             capabilities::run()?;
@@ -143,7 +123,9 @@ impl Run {
                     .add_process(pid)
                     .expect("Failed adding process to cgroup");
 
-                mounts::change_root(&bundle).expect("Failed setting container root file system");
+                bundle
+                    .change_root()
+                    .expect("Failed setting container root file system");
 
                 execve(
                     CString::new(command[0].clone()).unwrap().as_c_str(),
@@ -176,7 +158,8 @@ impl Run {
             waitpid(child_pid, Some(WaitPidFlag::__WALL))?;
 
             cgroup.delete()?;
-            mounts::unmount_special(&bundle)?;
+
+            bundle.unmount_special()?;
             bundle.unmount_volumes(volumes.iter())?;
             bundle.unmount_overlayfs()?;
 
