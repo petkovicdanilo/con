@@ -29,7 +29,7 @@ Command `con --help` will list you all options:
 - `run` - creating container from image (pulling it if it does not exist on disk)
 and running it
 
-[![asciicast](https://asciinema.org/a/pSef3gw8SXjPoMXqWfLzyRwy1.svg)](https://asciinema.org/a/pSef3gw8SXjPoMXqWfLzyRwy1)
+[![asciicast](https://asciinema.org/a/445035.svg)](https://asciinema.org/a/445035)
 
 ## Next steps
 
