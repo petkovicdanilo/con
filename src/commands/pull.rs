@@ -5,7 +5,7 @@ use clap::Clap;
 use flate2::bufread::GzDecoder;
 use futures::future::join_all;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use oci_registry::registry::Registry;
+use oci_registry::Registry;
 use oci_spec::image::{Arch, Os};
 use tar::Archive;
 use tokio::fs::{create_dir_all, remove_file, rename};
