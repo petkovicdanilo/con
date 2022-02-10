@@ -12,7 +12,7 @@ use crate::{
     volume::Volume,
 };
 use anyhow::{anyhow, bail, Result};
-use clap::Clap;
+use clap::Parser;
 use nix::{
     sched::{clone, CloneFlags},
     sys::wait::{waitpid, WaitPidFlag},
@@ -22,7 +22,7 @@ use nix::{
 use super::pull::Pull;
 
 /// Run a command in a new container
-#[derive(Clap, Debug)]
+#[derive(Parser, Debug)]
 #[clap(author, version)]
 pub struct Run {
     /// Container host name

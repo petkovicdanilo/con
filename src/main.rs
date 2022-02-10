@@ -1,8 +1,9 @@
 use anyhow::Result;
-use clap::Clap;
+use clap::Parser;
 use con::commands::{pull, run};
+use std::str;
 
-#[derive(Clap, Debug)]
+#[derive(Parser, Debug)]
 #[clap(author, about, version)]
 enum Opt {
     Pull(pull::Pull),

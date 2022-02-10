@@ -1,7 +1,7 @@
 use std::{fs::File, io::BufReader};
 
 use anyhow::Result;
-use clap::Clap;
+use clap::Parser;
 use flate2::bufread::GzDecoder;
 use futures::future::join_all;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -13,7 +13,7 @@ use tokio::fs::{create_dir_all, remove_file, rename};
 use crate::image::{parse_image_id, Image, ImageId};
 
 /// Pull an image or a repository from a registry
-#[derive(Clap, Debug)]
+#[derive(Parser, Debug)]
 #[clap(author, version)]
 pub struct Pull {
     #[clap(name = "IMAGE", parse(from_str = parse_image_id))]

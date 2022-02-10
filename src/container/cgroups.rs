@@ -3,9 +3,9 @@ use cgroups_rs::{
     cgroup_builder::CgroupBuilder, cpu::CpuController, memory::MemController, pid::PidController,
     Cgroup, CgroupPid, Controller, MaxValue,
 };
-use clap::Clap;
+use clap::Parser;
 
-#[derive(Clap, Debug)]
+#[derive(Parser, Debug)]
 pub struct Config {
     /// CPU shares (relative weight)
     #[clap(short, long, default_value = "256")]

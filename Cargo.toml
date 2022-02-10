@@ -13,7 +13,7 @@ flate2 = { version = "1.0.22", features = ["tokio"] }
 futures = "0.3.17"
 caps = { git = "https://github.com/lucab/caps-rs", rev = "cb54844" }
 cgroups-rs = "0.2"
-clap = "3.0.0-beta.4"
+clap = { version = "3.0.14", features = ["derive"] }
 indicatif = "0.16.2"
 nix = "0.22"
 oci-registry = { git = "https://github.com/petkovicdanilo/oci-registry-rs", rev = "ec600f8", features = ["indicatif"] }
